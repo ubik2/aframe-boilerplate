@@ -11,21 +11,8 @@
   <body>
     <script>
   function connectCallback(sceneEl, chat) {
-    chat.emit('spawn', { 'position': sceneEl.getAttribute('position'),
-                         'rotation': sceneEl.getAttribute('rotation'),
-                         'color': "#4CC3D9" })
-    var foo = sceneEl.getAttribute('position')
-    // hook up to camera position changes to notify the server
-    var playerEntityEl = sceneEl.querySelector("#player")
-    playerEntityEl.addEventListener('componentchanged', function (evt) {
-      if (evt.detail.name === 'position') {
-        var oldData = evt.detail.oldData
-        var newData = evt.detail.newData
-        if (oldData.x !== newData.x || oldData.y !== newData.y || oldData.z !== newData.z) {
-          chat.emit('position', evt.detail.newData)
-        }
-      }
-    })
+    // unfortunately, our position and rotation attributes aren't set when we call this
+    chat.emit('spawn', { 'color': "#4CC3D9" })
     chat.on('message', function (data) {
       console.log(data)
     }).on('spawn', function (data) {
@@ -47,6 +34,9 @@
     init: function () {
       console.log("in networkmanager init")
       var sceneEl = this.el
+      if (this.data == undefined || this.data == "") {
+        this.data = location.protocol + '//' + location.hostname + ':4000/chat'
+      }
       var socket = io.connect(this.data)
       socket.on('connect', function() { connectCallback(sceneEl, socket) })
       this.socket = socket
@@ -71,8 +61,6 @@
         //var networkManager = this.el.parentNode.components.networkmanager
         //this.socket = networkManager.socket
         var networkComponent = this
-        var lastPosition = this.lastPosition
-        var lastRotation = this.lastRotation
         this.eventHandlerFn = function (evt) {
           // unfortunately, we call init on the children before the parent, and also call componentchanged before
           // the parent's networkmanager has been initialized.
@@ -95,6 +83,10 @@
         var socket = parentNode.components.networkmanager.socket
         var el = this.el
         var serverId = this.data.serverId
+        // I'm handling the despawn and position updates here for now, but it's probably better to
+        // handle them all in the networkmanager, so i can look up the appropriate entity, and just
+        // handle it once (right now, every network component gets the message, but it's only meant
+        // for one of them).
         socket.on('despawn', function (data) {
           if (data['id'] == serverId) {
             el.parentNode.removeChild(el);
@@ -116,7 +108,7 @@
   })
     </script>
 
-    <a-scene id="scene" networkmanager="http://192.168.10.17:4000/chat">
+    <a-scene id="scene" networkmanager>
       <a-entity id="player" camera keyboard-controls position="0 0.5 0.5" network="master: true"></a-entity>
       <a-box position="-1 0.5 -3" rotation="0 45 0" color="#4CC3D9"></a-box>
       <a-sphere position="0 1.25 -5" radius="1.25" color="#EF2D5E"></a-sphere>
