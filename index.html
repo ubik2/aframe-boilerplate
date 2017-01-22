@@ -9,30 +9,12 @@
     <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
   </head>
   <body>
-    <a-scene id="scene">
-      <a-entity id="player" camera keyboard-controls position="0 0.5 0.5"></a-entity>
-      <a-box position="-1 0.5 -3" rotation="0 45 0" color="#4CC3D9"></a-box>
-      <a-sphere position="0 1.25 -5" radius="1.25" color="#EF2D5E"></a-sphere>
-      <a-cylinder position="1 0.75 -3" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
-      <a-plane position="0 0 -4" rotation="-90 0 0" width="4" height="4" color="#7BC8A4"></a-plane>
-      <a-sky color="#ECECEC"></a-sky>
-    </a-scene>
-
     <script>
-
-  AFRAME.registerComponent('network', {
-    schema: {},
-    update: {},
-    remove: {}
-  })
-
-  var sceneEl = document.querySelector('a-scene')
-
-  var chat = io.connect('http://192.168.10.17:4000/chat')
-  chat.on('connect', function () {
-    chat.emit('spawn', { 'position': {x: -1, y: 0.5, z: -3},
-                         'rotation': {x: 0, y: 45, z: 0},
+  function connectCallback(sceneEl, chat) {
+    chat.emit('spawn', { 'position': sceneEl.getAttribute('position'),
+                         'rotation': sceneEl.getAttribute('rotation'),
                          'color': "#4CC3D9" })
+    var foo = sceneEl.getAttribute('position')
     // hook up to camera position changes to notify the server
     var playerEntityEl = sceneEl.querySelector("#player")
     playerEntityEl.addEventListener('componentchanged', function (evt) {
@@ -44,24 +26,104 @@
         }
       }
     })
-  }).on('message', function (data) {
-    console.log(data)
-  }).on('spawn', function (data) {
-    var entityEl = document.createElement('a-box')
-    entityEl.id = data['id']
-    entityEl.setAttribute('position', data['position'])
-    entityEl.setAttribute('rotation', data['rotation'])
-    //entityEl.setAttribute('color', data['color'])
-    sceneEl.appendChild(entityEl)
-  }).on('despawn', function (data) {
-    var entityEl = sceneEl.querySelector('#' + data['id'])
-    entityEl.parentNode.removeChild(entityEl);
-  }).on('position', function (data) {
-    var entityEl = sceneEl.querySelector('#' + data['id'])
-    entityEl.setAttribute('position', data['position'])
-    sceneEl.appendChild(entityEl)
+    chat.on('message', function (data) {
+      console.log(data)
+    }).on('spawn', function (data) {
+      var entityEl = document.createElement('a-box')
+      entityEl.setAttribute('network', {
+        master: false,
+        serverId: data['id'],
+      })
+      console.log("Spawning remote object at ", data['position'])
+      entityEl.setAttribute('position', data['position'])
+      entityEl.setAttribute('rotation', data['rotation'])
+      //entityEl.setAttribute('color', data['color'])
+      sceneEl.appendChild(entityEl)
+    })
+  }
+
+  AFRAME.registerComponent('networkmanager', {
+    schema: { type: 'string' },
+    init: function () {
+      console.log("in networkmanager init")
+      var sceneEl = this.el
+      var socket = io.connect(this.data)
+      socket.on('connect', function() { connectCallback(sceneEl, socket) })
+      this.socket = socket
+    },
+    remove: function () {
+      this.socket.disconnect(true)
+    },
+    socket: null
   })
 
+  AFRAME.registerComponent('network', {
+    schema: {
+      master: { type: 'boolean' },
+      serverId: { type: 'string' },
+    },
+    init: function() {
+      console.log("in network init")
+      var parentNode = this.el.parentNode
+      if (this.data.master) {
+        // hook up to camera position changes to notify the server
+        var parentNode = this.el.parentNode
+        //var networkManager = this.el.parentNode.components.networkmanager
+        //this.socket = networkManager.socket
+        var networkComponent = this
+        var lastPosition = this.lastPosition
+        var lastRotation = this.lastRotation
+        this.eventHandlerFn = function (evt) {
+          // unfortunately, we call init on the children before the parent, and also call componentchanged before
+          // the parent's networkmanager has been initialized.
+          if (parentNode.components.networkmanager == undefined ||
+              parentNode.components.networkmanager.socket == undefined) {
+            return
+          }
+          var socket = parentNode.components.networkmanager.socket
+          if (evt.detail.name === 'position') {
+            var oldData = networkComponent.lastPosition
+            var newData = evt.detail.newData
+            if (oldData == undefined || oldData.x !== newData.x || oldData.y !== newData.y || oldData.z !== newData.z) {
+              socket.emit('position', evt.detail.newData)
+              networkComponent.lastPosition = newData
+            }
+          }
+        }
+        this.el.addEventListener('componentchanged', this.eventHandlerFn)
+      } else {
+        var socket = parentNode.components.networkmanager.socket
+        var el = this.el
+        var serverId = this.data.serverId
+        socket.on('despawn', function (data) {
+          if (data['id'] == serverId) {
+            el.parentNode.removeChild(el);
+          }
+        }).on('position', function (data) {
+          if (data['id'] == serverId) {
+            el.setAttribute('position', data['position'])
+          }
+        })
+      }
+    },
+    remove: function() {
+      if (this.eventHandlerFn !== undefined) {
+        this.el.removeEventListener('componentchanged', this.eventHandlerFn)
+      }
+    },
+    lastPosition: null,
+    lastRotation: null
+  })
     </script>
+
+    <a-scene id="scene" networkmanager="http://192.168.10.17:4000/chat">
+      <a-entity id="player" camera keyboard-controls position="0 0.5 0.5" network="master: true"></a-entity>
+      <a-box position="-1 0.5 -3" rotation="0 45 0" color="#4CC3D9"></a-box>
+      <a-sphere position="0 1.25 -5" radius="1.25" color="#EF2D5E"></a-sphere>
+      <a-cylinder position="1 0.75 -3" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
+      <a-plane position="0 0 -4" rotation="-90 0 0" width="4" height="4" color="#7BC8A4"></a-plane>
+      <a-sky color="#ECECEC"></a-sky>
+    </a-scene>
+
   </body>
 </html>
