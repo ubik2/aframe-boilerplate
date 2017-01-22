@@ -9,7 +9,6 @@
     "ghpages": "ghpages"
   },
   "devDependencies": {
-    "aframe-keyboard-controls": "^1.3.0",
     "babelify": "^7.3.0",
     "budo": "^7.1.0",
     "ghpages": "0.0.3",

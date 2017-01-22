@@ -5,7 +5,6 @@
     <title>Hello, World! - A-Frame</title>
     <meta name="description" content="Hello, World! - A-Frame">
     <script src="https://aframe.io/releases/0.3.2/aframe.min.js"></script>
-    <script src="https://rawgit.com/donmccurdy/aframe-keyboard-controls/master/dist/aframe-keyboard-controls.min.js"></script>
     <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
   </head>
   <body>
@@ -109,7 +108,7 @@
     </script>
 
     <a-scene id="scene" networkmanager>
-      <a-entity id="player" camera keyboard-controls look-controls position="0 0.5 0.5" network="master: true"></a-entity>
+      <a-entity id="player" camera wasd-controls look-controls position="0 0.5 0.5" network="master: true"></a-entity>
       <a-box position="-1 0.5 -3" rotation="0 45 0" color="#4CC3D9"></a-box>
       <a-sphere position="0 1.25 -5" radius="1.25" color="#EF2D5E"></a-sphere>
       <a-cylinder position="1 0.75 -3" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
