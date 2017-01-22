@@ -25,6 +25,14 @@
       entityEl.setAttribute('rotation', data['rotation'])
       //entityEl.setAttribute('color', data['color'])
       sceneEl.appendChild(entityEl)
+      sceneEl.components.networkmanager.networkComponents[data['id']] = entityEl
+    }).on('position', function (data) {
+      var networkComponent = sceneEl.components.networkmanager.networkComponents[data['id']]
+      networkComponent.setAttribute('position', data['position'])
+    }).on('despawn', function (data) {
+      var networkComponent = sceneEl.components.networkmanager.networkComponents[data['id']]
+      networkComponent.parentNode.removeChild(networkComponent)
+      sceneEl.components.networkmanager.networkComponents.delete([data['id']])
     })
   }
 
@@ -43,7 +51,8 @@
     remove: function () {
       this.socket.disconnect(true)
     },
-    socket: null
+    socket: null,
+    networkComponents: new Map()
   })
 
   AFRAME.registerComponent('network', {
@@ -78,23 +87,6 @@
           }
         }
         this.el.addEventListener('componentchanged', this.eventHandlerFn)
-      } else {
-        var socket = parentNode.components.networkmanager.socket
-        var el = this.el
-        var serverId = this.data.serverId
-        // I'm handling the despawn and position updates here for now, but it's probably better to
-        // handle them all in the networkmanager, so i can look up the appropriate entity, and just
-        // handle it once (right now, every network component gets the message, but it's only meant
-        // for one of them).
-        socket.on('despawn', function (data) {
-          if (data['id'] == serverId) {
-            el.parentNode.removeChild(el);
-          }
-        }).on('position', function (data) {
-          if (data['id'] == serverId) {
-            el.setAttribute('position', data['position'])
-          }
-        })
       }
     },
     remove: function() {
