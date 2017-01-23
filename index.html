@@ -6,100 +6,11 @@
     <meta name="description" content="Hello, World! - A-Frame">
     <script src="https://aframe.io/releases/0.3.2/aframe.min.js"></script>
     <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+    <script src="index.js"></script>
   </head>
   <body>
-    <script>
-  function connectCallback(sceneEl, chat) {
-    // unfortunately, our position and rotation attributes aren't set when we call this
-    chat.emit('spawn', { 'color': "#4CC3D9" })
-    chat.on('message', function (data) {
-      console.log(data)
-    }).on('spawn', function (data) {
-      var entityEl = document.createElement('a-box')
-      entityEl.setAttribute('network', {
-        master: false,
-        serverId: data['id'],
-      })
-      console.log("Spawning remote object at ", data['position'])
-      entityEl.setAttribute('position', data['position'])
-      entityEl.setAttribute('rotation', data['rotation'])
-      //entityEl.setAttribute('color', data['color'])
-      sceneEl.appendChild(entityEl)
-      sceneEl.components.networkmanager.networkComponents[data['id']] = entityEl
-    }).on('position', function (data) {
-      var networkComponent = sceneEl.components.networkmanager.networkComponents[data['id']]
-      networkComponent.setAttribute('position', data['position'])
-    }).on('despawn', function (data) {
-      var networkComponent = sceneEl.components.networkmanager.networkComponents[data['id']]
-      networkComponent.parentNode.removeChild(networkComponent)
-      sceneEl.components.networkmanager.networkComponents.delete([data['id']])
-    })
-  }
 
-  AFRAME.registerComponent('networkmanager', {
-    schema: { type: 'string' },
-    init: function () {
-      console.log("in networkmanager init")
-      var sceneEl = this.el
-      if (this.data == undefined || this.data == "") {
-        this.data = location.protocol + '//' + location.hostname + ':4000/chat'
-      }
-      var socket = io.connect(this.data)
-      socket.on('connect', function() { connectCallback(sceneEl, socket) })
-      this.socket = socket
-    },
-    remove: function () {
-      this.socket.disconnect(true)
-    },
-    socket: null,
-    networkComponents: new Map()
-  })
-
-  AFRAME.registerComponent('network', {
-    schema: {
-      master: { type: 'boolean' },
-      serverId: { type: 'string' },
-    },
-    init: function() {
-      console.log("in network init")
-      var parentNode = this.el.parentNode
-      if (this.data.master) {
-        // hook up to camera position changes to notify the server
-        var parentNode = this.el.parentNode
-        //var networkManager = this.el.parentNode.components.networkmanager
-        //this.socket = networkManager.socket
-        var networkComponent = this
-        this.eventHandlerFn = function (evt) {
-          // unfortunately, we call init on the children before the parent, and also call componentchanged before
-          // the parent's networkmanager has been initialized.
-          if (parentNode.components.networkmanager == undefined ||
-              parentNode.components.networkmanager.socket == undefined) {
-            return
-          }
-          var socket = parentNode.components.networkmanager.socket
-          if (evt.detail.name === 'position') {
-            var oldData = networkComponent.lastPosition
-            var newData = evt.detail.newData
-            if (oldData == undefined || oldData.x !== newData.x || oldData.y !== newData.y || oldData.z !== newData.z) {
-              socket.emit('position', evt.detail.newData)
-              networkComponent.lastPosition = newData
-            }
-          }
-        }
-        this.el.addEventListener('componentchanged', this.eventHandlerFn)
-      }
-    },
-    remove: function() {
-      if (this.eventHandlerFn !== undefined) {
-        this.el.removeEventListener('componentchanged', this.eventHandlerFn)
-      }
-    },
-    lastPosition: null,
-    lastRotation: null
-  })
-    </script>
-
-    <a-scene id="scene" networkmanager>
+    <a-scene id="scene" networkmanager="port: 4000">
       <a-entity id="player" camera wasd-controls look-controls position="0 0.5 0.5" network="master: true"></a-entity>
       <a-box position="-1 0.5 -3" rotation="0 45 0" color="#4CC3D9"></a-box>
       <a-sphere position="0 1.25 -5" radius="1.25" color="#EF2D5E"></a-sphere>

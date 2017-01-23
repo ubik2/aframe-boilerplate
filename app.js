@@ -1,7 +1,7 @@
 var budo = require('budo')
 var babelify = require('babelify')
 
-budo('./src/index.js', {
+budo('index.js', {
     live: true,             // setup live reload
     port: 3000,             // use this port
     browserify: {
