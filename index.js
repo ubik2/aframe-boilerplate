@@ -1,59 +1,70 @@
+"use strict";
+
 if (typeof AFRAME === 'undefined') {
     throw new Error('Component attempted to register before AFRAME was available.');
 }
 
-AFRAME.registerComponent('networkmanager', {
+AFRAME.registerSystem('network', {
   schema: {
     url: {
       type: 'string',
       default: null
     },
     port: {
-      type: 'int'
+      type: 'int',
+      default: 4000
+    },
+    path: {
+      type: 'string',
+      default: '/chat'
     }
   },
-  onNetworkConnect: function () {
-    var networkManager = this
-    // unfortunately, our position and rotation attributes aren't set when we call this
-    this.socket.emit('spawn', { 'color': "#4CC3D9" })
-    this.socket.on('message', function (data) {
-      console.log(data)
-    }).on('spawn', function (data) {
-      var entityEl = document.createElement('a-box')
-      entityEl.setAttribute('network', {
-        master: false,
-        serverId: data['id'],
+    onNetworkConnect: function () {
+      var networkManager = this
+      // unfortunately, our position and rotation attributes aren't set when we call this
+      this.socket.emit('spawn', { 'color': "#4CC3D9" })
+      this.socket.on('message', function (data) {
+        console.log(data)
+      }).on('spawn', function (data) {
+        var entityEl = document.createElement('a-box')
+        entityEl.setAttribute('network', {
+          master: false,
+          serverId: data['id'],
+        })
+        console.log("Spawning remote object: ", data['id'])
+        entityEl.setAttribute('position', data['position'])
+        entityEl.setAttribute('rotation', data['rotation'])
+        //entityEl.setAttribute('color', data['color'])
+        var scene = document.querySelector('a-scene');
+        scene.appendChild(entityEl)
+        networkManager.registerMe(entityEl)
+      }).on('position', function (data) {
+        var entityEl = networkManager.entities[data['id']]
+        entityEl.setAttribute('position', data['position'])
+      }).on('despawn', function (data) {
+        console.log("Despawning remote object: ", data['id'])
+        var entityEl = networkManager.entities[data['id']]
+        entityEl.parentNode.removeChild(entityEl)
+        networkManager.unregisterMe(entityEl)
       })
-      console.log("Spawning remote object at ", data['position'])
-      entityEl.setAttribute('position', data['position'])
-      entityEl.setAttribute('rotation', data['rotation'])
-      //entityEl.setAttribute('color', data['color'])
-      networkManager.el.appendChild(entityEl)
-      networkManager.networkComponents[data['id']] = entityEl
-    }).on('position', function (data) {
-      var networkComponent = networkManager.networkComponents[data['id']]
-      networkComponent.setAttribute('position', data['position'])
-    }).on('despawn', function (data) {
-      var networkComponent = networkManager.networkComponents[data['id']]
-      networkComponent.parentNode.removeChild(networkComponent)
-      networkManager.networkComponents.delete([data['id']])
-    })
-  },
+    },
   init: function () {
-    console.log("in networkmanager init")
-    var sceneEl = this.el
+    this.entities = new Map()
     if (this.data.url == undefined || this.data.url == "") {
-      this.data.url = location.protocol + '//' + location.hostname + ':' + this.data.port + '/chat'
+      this.data.url = location.protocol + '//' + location.hostname + ':' + this.data.port + this.data.path
     }
     var socket = io.connect(this.data.url)
     socket.on('connect', this.onNetworkConnect.bind(this))
     this.socket = socket
   },
-  remove: function () {
-    this.socket.disconnect(true)
+  registerMe: function (el) {
+    this.entities[el.getAttribute('network').serverId] = el
+  },
+  unregisterMe: function (el) {
+    this.entities.delete(el.getAttribute('network').serverId)
   },
   socket: null,
-  networkComponents: new Map()
+  entities: new Map()
 })
 
 AFRAME.registerComponent('network', {
@@ -65,11 +76,10 @@ AFRAME.registerComponent('network', {
     var parentNode = this.el.parentNode
     // unfortunately, we call init on the children before the parent, and also call componentchanged before
     // the parent's networkmanager has been initialized.
-    if (parentNode.components.networkmanager == undefined ||
-        parentNode.components.networkmanager.socket == undefined) {
+    if (this.system == undefined || this.system.socket == undefined) {
         return
     }
-    var socket = parentNode.components.networkmanager.socket
+    var socket = this.system.socket
     if (evt.detail.name === 'position') {
       var oldData = this.lastPosition
       var newData = evt.detail.newData
@@ -81,13 +91,8 @@ AFRAME.registerComponent('network', {
   },
   init: function() {
     console.log("in network init")
-    var parentNode = this.el.parentNode
     if (this.data.master) {
       // hook up to camera position changes to notify the server
-      var parentNode = this.el.parentNode
-      //var networkManager = this.el.parentNode.components.networkmanager
-      //this.socket = networkManager.socket
-      var networkComponent = this
       this.el.addEventListener('componentchanged', this.onComponentChanged.bind(this))
     }
   },
