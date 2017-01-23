@@ -3,6 +3,7 @@ if (typeof AFRAME === 'undefined') {
 }
 
 AFRAME.registerSystem('network', {
+  dependencies: ['position', 'rotation'],
   schema: {
     url: {
       type: 'string',
@@ -20,7 +21,7 @@ AFRAME.registerSystem('network', {
   onNetworkConnect: function () {
     var networkManager = this
     // unfortunately, our position and rotation attributes aren't set when we call this
-    this.socket.emit('spawn', { 'color': "#4CC3D9" })
+    this.socket.emit('spawn', { 'color': "#0F1963" })
     this.socket.on('message', function (data) {
       console.log(data)
     }).on('spawn', function (data) {
@@ -32,7 +33,9 @@ AFRAME.registerSystem('network', {
       console.log("Spawning remote object: ", data.id)
       entityEl.setAttribute('position', data.position)
       entityEl.setAttribute('rotation', data.rotation)
-      //entityEl.setAttribute('color', data['color'])
+      if (entityEl.components.material !== undefined) {
+        entityEl.setAttribute('material', 'color', data.color)
+      }
       var scene = document.querySelector('a-scene')
       scene.appendChild(entityEl)
       networkManager.registerMe(entityEl)

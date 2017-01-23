@@ -42,17 +42,25 @@ var chat = io
       socket.broadcast.emit('despawn', clientDetail)
     }).on('spawn', function (data) {
       // add our client
-      data['id'] = 'player_' + nextClientId
+      data.id = 'player_' + nextClientId
       nextClientId = nextClientId + 1
       clients.set(socket, data)
       socket.broadcast.emit('spawn', data)
     }).on('position', function (data) {
       var clientDetail = clients.get(socket)
-      clientDetail['position'] = data
+      clientDetail.position = data
       clients.set(socket, clientDetail)
       socket.broadcast.emit('position', {
-        'id': clientDetail['id'],
-        'position': clientDetail['position']
+        id: clientDetail.id,
+        position: clientDetail.position
+      })
+    }).on('rotation', function (data) {
+      var clientDetail = clients.get(socket)
+      clientDetail.rotation = data
+      clients.set(socket, clientDetail)
+      socket.broadcast.emit('rotation', {
+        id: clientDetail.id,
+        rotation: clientDetail.rotation
       })
     })
 })
